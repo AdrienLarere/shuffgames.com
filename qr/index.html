@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>QR Code Generator - Shuff Games</title>
+  <meta name="description" content="Generate static QR codes from any URL. Download as PNG, JPG, SVG, or PDF.">
+  <link rel="icon" type="image/png" href="../assets/icon.png">
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="qr.css">
+</head>
+<body>
+
+  <!-- Nav -->
+  <nav class="qr-nav">
+    <a href="/" class="nav-brand">Shuff</a>
+  </nav>
+
+  <!-- Generator -->
+  <section class="qr-hero">
+    <div class="container">
+      <h1>QR Code Generator</h1>
+      <p class="tagline">Paste any URL and download your QR code instantly.</p>
+
+      <div class="qr-generator">
+        <div class="input-group">
+          <input
+            type="url"
+            id="url-input"
+            placeholder="https://example.com"
+            autocomplete="off"
+            spellcheck="false"
+          >
+          <button id="generate-btn" type="button">Generate</button>
+        </div>
+        <p id="error-msg" class="error-msg" hidden>Please enter a valid URL.</p>
+
+        <div id="qr-output" class="qr-output" hidden>
+          <div class="qr-preview">
+            <canvas id="qr-canvas"></canvas>
+            <svg id="qr-svg" xmlns="http://www.w3.org/2000/svg" style="display:none"></svg>
+          </div>
+
+          <div class="download-buttons">
+            <button class="dl-btn" data-format="png">PNG</button>
+            <button class="dl-btn" data-format="jpg">JPG</button>
+            <button class="dl-btn" data-format="svg">SVG</button>
+            <button class="dl-btn" data-format="pdf">PDF</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container">
+      <p class="copyright">&copy; 2025 Shuff Games Ltd. All rights reserved.</p>
+    </div>
+  </footer>
+
+  <!-- Libraries -->
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
+
+  <script>
+    const urlInput = document.getElementById('url-input');
+    const generateBtn = document.getElementById('generate-btn');
+    const errorMsg = document.getElementById('error-msg');
+    const qrOutput = document.getElementById('qr-output');
+    const qrCanvas = document.getElementById('qr-canvas');
+    const qrSvg = document.getElementById('qr-svg');
+
+    let currentSvgString = '';
+
+    function isValidUrl(str) {
+      try {
+        const url = new URL(str);
+        return url.protocol === 'http:' || url.protocol === 'https:';
+      } catch {
+        return false;
+      }
+    }
+
+    async function generate() {
+      const url = urlInput.value.trim();
+
+      if (!isValidUrl(url)) {
+        errorMsg.hidden = false;
+        qrOutput.hidden = true;
+        return;
+      }
+
+      errorMsg.hidden = true;
+
+      const opts = {
+        errorCorrectionLevel: 'H',
+        margin: 2,
+        width: 400,
+        color: { dark: '#000000', light: '#ffffff' }
+      };
+
+      // Render to canvas
+      await QRCode.toCanvas(qrCanvas, url, opts);
+
+      // Render to SVG string
+      currentSvgString = await QRCode.toString(url, { ...opts, type: 'svg' });
+
+      qrOutput.hidden = false;
+    }
+
+    function downloadFile(blob, filename) {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+
+    function downloadPNG() {
+      qrCanvas.toBlob(blob => downloadFile(blob, 'qrcode.png'), 'image/png');
+    }
+
+    function downloadJPG() {
+      // JPG needs white background (canvas is transparent by default)
+      const tmp = document.createElement('canvas');
+      tmp.width = qrCanvas.width;
+      tmp.height = qrCanvas.height;
+      const ctx = tmp.getContext('2d');
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, tmp.width, tmp.height);
+      ctx.drawImage(qrCanvas, 0, 0);
+      tmp.toBlob(blob => downloadFile(blob, 'qrcode.jpg'), 'image/jpeg', 0.95);
+    }
+
+    function downloadSVG() {
+      const blob = new Blob([currentSvgString], { type: 'image/svg+xml' });
+      downloadFile(blob, 'qrcode.svg');
+    }
+
+    function downloadPDF() {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({ unit: 'mm', format: [80, 80] });
+      const imgData = qrCanvas.toDataURL('image/png');
+      doc.addImage(imgData, 'PNG', 5, 5, 70, 70);
+      doc.save('qrcode.pdf');
+    }
+
+    // Event listeners
+    generateBtn.addEventListener('click', generate);
+    urlInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter') generate();
+    });
+
+    document.querySelectorAll('.dl-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const format = btn.dataset.format;
+        if (format === 'png') downloadPNG();
+        else if (format === 'jpg') downloadJPG();
+        else if (format === 'svg') downloadSVG();
+        else if (format === 'pdf') downloadPDF();
+      });
+    });
+  </script>
+
+</body>
+</html>
